@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Хлад — продукты и сроки годности</title>
+<meta name="description" content="Учёт продуктов, сроков годности и запасов дома. Работает офлайн, бесплатно.">
+<meta name="theme-color" content="#3f7fae">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" href="./icons/icon-32.png">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root{
+  --bg:#f6f4ef; --surface:#fffdf9; --line:#e8e2d4; --text:#211c15; --muted:#8d8471;
+  --ice:#3f7fae; --ice-soft:#e2eef7; --sage:#4f7f5f; --sage-soft:#e5efe6;
+  --warn:#b0781c; --warn-soft:#f6ecd6; --danger:#b34444; --danger-soft:#f6e2e2;
+  --ok:#3e7d4f; --ok-soft:#e3efe6; --accent:#3f7fae; --accent-soft:#e2eef7;
+  --radius:16px; --nav-h:64px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#e7e2d7;color:var(--text);height:100%}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select{font:inherit;color:inherit}
+.shell{max-width:430px;margin:0 auto;min-height:100dvh;background:var(--bg);position:relative;display:flex;flex-direction:column}
+@media(min-width:520px){body{padding:24px 0}.shell{min-height:calc(100dvh - 48px);border-radius:24px;box-shadow:0 30px 80px -40px rgba(28,25,21,.55);overflow:hidden;outline:1px solid var(--line)}}
+
+.appbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;background:linear-gradient(var(--bg) 75%,transparent)}
+.appbar h1{font-size:26px;font-weight:800;letter-spacing:-.5px}
+.appbar p{font-size:13px;color:var(--muted)}
+.icon-btn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--surface);outline:1px solid var(--line);position:relative}
+.icon-btn .dot{position:absolute;top:8px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--danger);border:2px solid var(--surface)}
+
+main{flex:1;padding:4px 14px calc(var(--nav-h) + 92px)}
+.view{display:none}
+.view.active{display:block}
+
+.search-wrap{margin:4px 2px 10px;position:relative}
+.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.search-wrap input{width:100%;padding:11px 12px 11px 40px;border-radius:13px;border:1px solid var(--line);background:var(--surface);outline:none}
+.search-wrap input:focus{border-color:var(--accent)}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{padding:7px 14px;border-radius:999px;background:var(--surface);outline:1px solid var(--line);font-size:14px;white-space:nowrap;color:var(--muted)}
+.chip.active{background:var(--text);color:var(--bg);outline:none}
+.chip b{font-weight:600;opacity:.7}
+
+.card{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 13px;margin-bottom:9px}
+.card:active{transform:scale(.985)}
+.card-main{flex:1;min-width:0}
+.card-name{display:block;font-weight:650;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-chip{font-size:11px;font-weight:700;padding:5px 8px;border-radius:8px;flex-shrink:0}
+.loc-fridge{background:var(--ice-soft);color:var(--ice)}
+.loc-freezer{background:var(--sage-soft);color:var(--sage)}
+.loc-pantry{background:var(--warn-soft);color:var(--warn)}
+.date-chip{flex-shrink:0;text-align:right;font-size:12.5px;font-weight:650;padding:6px 9px;border-radius:10px;line-height:1.25}
+.date-chip small{display:block;font-weight:500;font-size:10.5px;opacity:.85}
+.t-expired{background:var(--danger-soft);color:var(--danger)}
+.t-today,.t-tomorrow{background:var(--warn-soft);color:var(--warn)}
+.t-soon{background:var(--warn-soft);color:var(--warn)}
+.t-fresh{background:var(--ok-soft);color:var(--ok)}
+
+.group-title{font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:16px 4px 8px}
+.group-count{background:var(--line);border-radius:999px;padding:1px 8px;margin-left:4px;color:var(--text)}
+.empty{text-align:center;color:var(--muted);padding:36px 20px;font-size:14.5px;line-height:1.5}
+.empty.big{padding:60px 20px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.panel h3{font-size:16px;margin-bottom:8px}
+.muted{color:var(--muted);font-size:13.5px;line-height:1.55}
+.small{font-size:12px}
+.list-num{margin:6px 0 0 18px}
+.list-num li{margin-bottom:6px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:13px;font-weight:650;font-size:15px;background:var(--surface);outline:1px solid var(--line)}
+.btn.primary{background:var(--accent);color:#fff;outline:none}
+.btn.danger{background:var(--danger-soft);color:var(--danger);outline:none}
+.btn.wide{width:100%;margin-top:10px}
+.btn-row{display:flex;gap:10px}.btn-row .btn{flex:1}
+
+.menu-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:9px}
+.menu-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);flex-shrink:0}
+.menu-txt{flex:1;min-width:0}
+.menu-txt b{font-size:15px;font-weight:650;display:block}
+.menu-txt small{font-size:12.5px;color:var(--muted);display:block;margin-top:1px}
+.menu-chev{color:var(--muted);flex-shrink:0}
+
+.avatar{width:46px;height:46px;border-radius:14px;background:var(--ice-soft);display:grid;place-items:center;font-size:24px;flex-shrink:0}
+
+.fab{position:fixed;bottom:calc(var(--nav-h) + 18px);left:50%;transform:translateX(calc(-50% + 183px));margin-left:-76px;width:58px;height:58px;border-radius:18px;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 12px 28px -10px rgba(63,127,174,.7);z-index:6}
+@media(max-width:519px){.fab{left:auto;right:16px;transform:none;margin:0}}
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(430px,100%);height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--surface);border-top:1px solid var(--line);display:flex;z-index:6}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--muted);position:relative}
+.tab.active{color:var(--accent)}
+.tab .bdg{position:absolute;top:8px;right:calc(50% - 22px);background:var(--danger);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:999px;display:grid;place-items:center;padding:0 4px}
+
+.backdrop{position:fixed;inset:0;background:rgba(28,25,21,.45);z-index:20;opacity:0;transition:opacity .25s}
+.backdrop.show{opacity:1}
+.sheet{position:fixed;bottom:0;left:50%;transform:translate(-50%,105%);width:min(430px,100%);background:var(--surface);border-radius:22px 22px 0 0;padding:8px 18px calc(16px + env(safe-area-inset-bottom));z-index:21;transition:transform .3s cubic-bezier(.32,.72,.35,1);max-height:88dvh;overflow-y:auto}
+.sheet.show{transform:translate(-50%,0)}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px}
+.sheet-head h2{font-size:18px;font-weight:750}
+.fld{display:block;margin-top:13px}
+.fld>span{display:block;font-size:12.5px;font-weight:650;color:var(--muted);margin-bottom:6px}
+.fld input,.fld select{width:100%;padding:12px 13px;border-radius:12px;border:1px solid var(--line);background:var(--bg);outline:none}
+.fld input:focus,.fld select:focus{border-color:var(--accent)}
+.fld-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;padding:9px 4px;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.sheet-actions{display:flex;gap:10px;margin-top:18px}
+.sheet-actions .btn{flex:1}
+
+.modal{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(28,25,21,.5);padding:24px}
+.modal.hidden,.hidden{display:none!important}
+.modal-card{background:var(--surface);border-radius:20px;padding:20px;width:100%;max-width:360px}
+.modal-card h2{font-size:17px;margin-bottom:8px}
+.modal-card .body{font-size:14px;line-height:1.55;color:var(--muted)}
+.modal-actions{display:flex;gap:10px;margin-top:18px}
+.modal-actions .btn{flex:1}
+.modal-actions .btn:not(.primary):not(.danger){outline:1px solid var(--line)}
+.modal-card input{width:100%;margin-top:10px;padding:12px 13px;border-radius:12px;border:1px solid var(--line);background:var(--bg);outline:none}
+
+#toasts{position:fixed;bottom:calc(var(--nav-h) + 90px);left:50%;transform:translateX(-50%);z-index:40;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(430px,100%)}
+.toast{background:var(--text);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:550;opacity:0;transform:translateY(8px);transition:all .3s;max-width:88%}
+.toast.show{opacity:1;transform:none}
+
+.plan-badge{display:inline-flex;align-items:center;gap:6px;background:var(--warn-soft);color:var(--warn);font-weight:700;font-size:12.5px;padding:5px 12px;border-radius:999px}
+.plan-badge.pro{background:var(--ok-soft);color:var(--ok)}
+.feat{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.feat:last-child{border-bottom:0}
+.feat .fi{width:22px;flex-shrink:0;color:var(--ok);display:grid;place-items:center}
+.feat .fi.no{color:var(--muted);opacity:.55}
+.feat small{margin-left:auto;color:var(--muted);font-size:11.5px;text-align:right}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.plan-card{border:1.5px solid var(--line);border-radius:14px;padding:14px;text-align:center}
+.plan-card.hot{border-color:var(--accent);background:var(--accent-soft)}
+.plan-card .price{font-size:22px;font-weight:800;margin:4px 0 2px}
+.plan-card .per{font-size:12px;color:var(--muted)}
+.plan-card .save{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;background:var(--ok-soft);color:var(--ok);border-radius:999px;padding:3px 9px}
+.promo-row{display:flex;gap:8px;margin-top:12px}
+.promo-row input{flex:1;padding:12px 13px;border-radius:12px;border:1px solid var(--line);background:var(--bg);outline:none;text-transform:uppercase}
+.stat-row{display:flex;gap:10px;margin-bottom:12px}
+.stat{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat b{font-size:20px;display:block}
+.stat span{font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="appbar">
+    <div><h1>Хлад</h1><p id="hh-sub">Моя кладовая</p></div>
+    <button id="bell" class="icon-btn" title="Напоминания"></button>
+  </header>
+
+  <main>
+    <section id="view-stock" class="view active">
+      <div class="search-wrap"><span id="search-ic"></span><input id="search" type="search" placeholder="Поиск продукта…" autocomplete="off"></div>
+      <div class="chips" id="chips"></div>
+      <div id="stock-list"></div>
+      <div id="stock-empty" class="empty hidden">Здесь появятся ваши продукты.<br>Нажмите «+», чтобы добавить первый.</div>
+    </section>
+
+    <section id="view-dates" class="view"><div id="dates-list"></div></section>
+
+    <section id="view-share" class="view">
+      <div class="panel">
+        <h3>Совместный доступ</h3>
+        <p class="muted">Приложение работает без сервера, поэтому общий доступ устроен через ссылку-приглашение: получатель откроет её и загрузит снимок ваших запасов. Онлайн-синхронизация в реальном времени запланирована в платной версии.</p>
+        <button class="btn primary wide" id="s-invite">Создать ссылку-приглашение</button>
+        <div class="btn-row">
+          <button class="btn wide" id="s-export">Экспорт файла</button>
+          <button class="btn wide" id="s-import">Импорт файла</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Как это работает</h3>
+        <ol class="muted list-num">
+          <li>Нажмите «Создать ссылку-приглашение» и отправьте её домашним в любой мессенджер.</li>
+          <li>Открыв ссылку, они увидят предложение загрузить данные — запасы скопируются к ним.</li>
+          <li>Дальше каждый ведёт свою копию. Чтобы передать обновления — отправьте новую ссылку.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="view-more" class="view"><div id="more-list"></div></section>
+
+    <section id="view-sub" class="view">
+      <div class="panel" id="sub-plan"></div>
+      <div class="panel"><h3>Возможности</h3><div id="sub-feats"></div></div>
+      <div class="panel">
+        <h3>Тарифы</h3>
+        <div class="plans" id="sub-plans"></div>
+        <p class="muted small" style="margin-top:10px">Приём платежей заработает вместе с серверной частью. Пока можно активировать код доступа.</p>
+        <div class="promo-row"><input id="promo" placeholder="Код доступа" maxlength="24"><button class="btn" id="promo-btn">Активировать</button></div>
+      </div>
+    </section>
+  </main>
+
+  <button id="fab" class="fab" aria-label="Добавить продукт"></button>
+
+  <nav class="tabbar">
+    <button class="tab active" data-tab="stock"><span class="ti"></span>Запасы</button>
+    <button class="tab" data-tab="dates"><span class="ti"></span>Сроки<span class="bdg hidden" id="bdg-dates"></span></button>
+    <button class="tab" data-tab="share"><span class="ti"></span>Доступ</button>
+    <button class="tab" data-tab="more"><span class="ti"></span>Ещё</button>
+  </nav>
+</div>
+
+<div id="backdrop" class="backdrop hidden"></div>
+
+<div id="sheet" class="sheet" role="dialog" aria-modal="true">
+  <div class="sheet-head"><h2 id="sheet-title">Новый продукт</h2><button id="sheet-close" class="icon-btn"></button></div>
+  <label class="fld"><span>Название</span><input id="f-name" type="text" placeholder="Например, молоко" maxlength="60"></label>
+  <div class="fld"><span>Место хранения</span>
+    <div class="seg" id="f-loc">
+      <button type="button" data-loc="fridge" class="active">Холодильник</button>
+      <button type="button" data-loc="freezer">Морозилка</button>
+      <button type="button" data-loc="pantry">Кладовая</button>
+    </div>
+  </div>
+  <div class="fld-grid">
+    <label class="fld"><span>Категория</span><select id="f-cat"></select></label>
+    <label class="fld"><span>Количество</span><input id="f-qty" type="number" min="0" step="0.1" value="1"></label>
+    <label class="fld"><span>Единица</span><select id="f-unit"></select></label>
+    <label class="fld"><span>Срок годности</span><input id="f-date" type="date"></label>
+  </div>
+  <label class="fld"><span>Заметки</span><input id="f-notes" type="text" placeholder="Необязательно" maxlength="120"></label>
+  <div class="sheet-actions">
+    <button id="f-delete" class="btn danger hidden">Удалить</button>
+    <button id="f-save" class="btn primary">Сохранить</button>
+  </div>
+</div>
+
+<div id="modal" class="modal hidden"><div class="modal-card"><h2 id="modal-title"></h2><div id="modal-body" class="body"></div><div id="modal-actions" class="modal-actions"></div></div></div>
+
+<div id="toasts"></div>
+<input type="file" id="import-file" accept="application/json,.json" hidden>
+
+<script>
+(() => {
+'use strict';
+const LS_KEY='khlad.v1', FREE_LIMIT=30, APP_VERSION='1.0.0';
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+
+const ICONS={
+package:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+calendar:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 9h18"/>',
+users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+dots:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+plus:'<path d="M5 12h14M12 5v14"/>',
+x:'<path d="M18 6 6 18M6 6l12 12"/>',
+share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4"/><path d="m15.4 6.5-6.8 4"/>',
+download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+crown:'<path d="M3 17 2 6l5.5 4L12 4l4.5 6L22 6l-1 11Z"/><path d="M5 21h14"/>',
+check:'<path d="M20 6 9 17l-5-5"/>',
+chevR:'<path d="m9 18 6-6-6-6"/>',
+snow:'<path d="M12 2v20M4.9 4.9l14.2 14.2M2 12h20M4.9 19.1 19.1 4.9"/>',
+info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+star:'<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/>'
+};
+const icon=(n,s=20)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
+
+const LOCATIONS=[{id:'fridge',label:'Холодильник',short:'Холод'},{id:'freezer',label:'Морозилка',short:'Мороз'},{id:'pantry',label:'Кладовая',short:'Запас'}];
+const CATEGORIES=['Молочное','Мясо и рыба','Овощи','Фрукты','Напитки','Соусы','Готовое','Выпечка','Заморозка','Бакалея','Другое'];
+const UNITS=['шт','кг','г','л','мл','пачка','уп.'];
+// Мастер-ключ: даёт Хлад Pro любому, кто его введёт. Проверка — на устройстве,
+// поэтому ключ виден в коде любому, кто откроет репозиторий. Защитой это не является:
+// для настоящей защиты позже перенесите проверку на сервер (см. README).
+const PROMO_CODES=['KHLD-PRO-FOREVER'];
+
+/* ---------- state ---------- */
+const defaultState=()=>({household:'Моя кладовая',products:[],pro:false,settings:{notifications:false,notifyDays:3},notified:{},createdAt:Date.now()});
+let state;
+try{const raw=localStorage.getItem(LS_KEY);state=raw?Object.assign(defaultState(),JSON.parse(raw)):defaultState();state.settings=Object.assign(defaultState().settings,state.settings||{});}catch(e){state=defaultState();}
+const save=()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}};
+const uid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'id'+Date.now()+Math.random().toString(36).slice(2,8);
+const locById=id=>LOCATIONS.find(l=>l.id===id)||LOCATIONS[0];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- dates ---------- */
+const dayStart=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x;};
+const daysUntil=iso=>Math.round((dayStart(new Date(iso+'T00:00:00'))-dayStart(new Date()))/864e5);
+const expiryKind=d=>d<0?'expired':d===0?'today':d===1?'tomorrow':d<=3?'soon':'fresh';
+const KIND_LABEL={expired:'Просрочено',today:'Сегодня',tomorrow:'Завтра',soon:'2–3 дня',week:'4–7 дней',later:'Дольше недели'};
+function daysLabel(d){if(d<0)return'просрочен '+-d+' дн.';if(!d)return'истекает сегодня';if(d===1)return'истекает завтра';return'осталось '+d+' дн.';}
+const fmtDate=iso=>new Date(iso+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+
+/* ---------- toast & modal ---------- */
+function toast(msg,ms=3200){const t=document.createElement('div');t.className='toast';t.textContent=msg;$('#toasts').appendChild(t);setTimeout(()=>t.classList.add('show'),10);setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300);},ms);}
+function modal(opts){$('#modal-title').textContent=opts.title;$('#modal-body').innerHTML=opts.body||'';const box=$('#modal-actions');box.innerHTML='';(opts.actions||[{label:'Закрыть'}]).forEach(a=>{const b=document.createElement('button');b.className='btn '+(a.class||'');b.textContent=a.label;b.onclick=()=>{$('#modal').classList.add('hidden');a.onClick&&a.onClick();};box.appendChild(b);});$('#modal').classList.remove('hidden');}
+
+/* ---------- ui ---------- */
+const ui={tab:'stock',loc:'all',q:''};
+const matches=p=>(ui.loc==='all'||p.location===ui.loc)&&(!ui.q||p.name.toLowerCase().includes(ui.q));
+
+function cardHTML(p){const d=daysUntil(p.expiresOn),k=expiryKind(d),loc=locById(p.location);
+return `<button class="card" data-edit="${p.id}">
+<span class="loc-chip loc-${p.location}">${loc.short}</span>
+<span class="card-main"><span class="card-name">${esc(p.name)}</span>
+<span class="card-meta">${esc(p.category)} · ${esc(String(p.quantity))} ${esc(p.unit)}${p.notes?' · '+esc(p.notes):''}</span></span>
+<span class="date-chip t-${k}">${fmtDate(p.expiresOn)}<small>${daysLabel(d)}</small></span></button>`;}
+
+function renderStock(){
+  const items=state.products.filter(matches).sort((a,b)=>a.expiresOn<b.expiresOn?-1:a.expiresOn>b.expiresOn?1:a.name.localeCompare(b.name,'ru'));
+  $('#stock-empty').classList.toggle('hidden',items.length>0);
+  $('#stock-list').innerHTML=items.map(cardHTML).join('');
+  $$('#stock-list [data-edit]').forEach(b=>b.onclick=()=>openSheet(b.dataset.edit));
+}
+function renderDates(){
+  const groups={expired:[],today:[],tomorrow:[],soon:[],week:[],later:[]};
+  state.products.slice().sort((a,b)=>a.expiresOn<b.expiresOn?-1:1).forEach(p=>{const d=daysUntil(p.expiresOn),k=expiryKind(d);groups[k==='fresh'?(d<=7?'week':'later'):k].push(p);});
+  let html='';
+  ['expired','today','tomorrow','soon','week','later'].forEach(k=>{if(!groups[k].length)return;
+    html+=`<div class="group-title">${KIND_LABEL[k]}<span class="group-count">${groups[k].length}</span></div>`+groups[k].map(cardHTML).join('');});
+  $('#dates-list').innerHTML=html||'<div class="empty big">Нет продуктов.<br>Добавьте первый — кнопка «+» ниже.</div>';
+  $$('#dates-list [data-edit]').forEach(b=>b.onclick=()=>openSheet(b.dataset.edit));
+}
+function renderChips(){
+  const counts={all:state.products.length};LOCATIONS.forEach(l=>counts[l.id]=state.products.filter(p=>p.location===l.id).length);
+  $('#chips').innerHTML=`<button class="chip ${ui.loc==='all'?'active':''}" data-loc="all">Все <b>${counts.all}</b></button>`+
+    LOCATIONS.map(l=>`<button class="chip ${ui.loc===l.id?'active':''}" data-loc="${l.id}">${l.label} <b>${counts[l.id]}</b></button>`).join('');
+  $$('#chips .chip').forEach(c=>c.onclick=()=>{ui.loc=c.dataset.loc;renderChips();renderStock();});
+}
+function renderBadges(){
+  const n=state.products.filter(p=>daysUntil(p.expiresOn)<=1).length;
+  const b=$('#bdg-dates');b.textContent=n;b.classList.toggle('hidden',!n);
+  $('#bell').innerHTML=icon('bell')+(n?'<span class="dot"></span>':'');
+}
+function renderMore(){
+  const soon=state.products.filter(p=>{const d=daysUntil(p.expiresOn);return d>=0&&d<=state.settings.notifyDays;}).length;
+  const expired=state.products.filter(p=>daysUntil(p.expiresOn)<0).length;
+  const row=(id,ic,label,sub)=>`<button class="menu-row" id="${id}"><span class="menu-ic">${icon(ic)}</span><span class="menu-txt"><b>${label}</b><small>${sub}</small></span><span class="menu-chev">${icon('chevR',18)}</span></button>`;
+  $('#more-list').innerHTML=`
+    <div class="stat-row">
+      <div class="stat"><b>${state.products.length}</b><span>продуктов</span></div>
+      <div class="stat"><b>${soon}</b><span>истекает за ${state.settings.notifyDays} дн.</span></div>
+      <div class="stat"><b>${expired}</b><span>просрочено</span></div>
+    </div>
+    <div class="panel" style="display:flex;align-items:center;gap:12px">
+      <span class="avatar">🧊</span>
+      <span style="flex:1"><b id="m-hh-name">${esc(state.household)}</b><br><small class="muted">Название кладовой</small></span>
+      <button class="btn" id="m-hh-edit" style="padding:9px 14px">Изменить</button>
+    </div>`
+    +row('m-notif','bell',state.settings.notifications?'Напоминания включены':'Напоминания выключены','Уведомлять о продуктах, у которых истекает срок')
+    +row('m-sub','crown','Подписка и тарифы',state.pro?'Хлад Pro активен':'Бесплатная версия'+(state.products.length>=FREE_LIMIT?' · лимит достигнут':''))
+    +`<button class="menu-row hidden" id="m-install"><span class="menu-ic">${icon('download')}</span><span class="menu-txt"><b>Установить приложение</b><small>Иконка на рабочем столе, полноэкранный режим</small></span><span class="menu-chev">${icon('chevR',18)}</span></button>`
+    +row('m-export','download','Экспорт данных','Сохранить копию запасов в файл JSON')
+    +row('m-import','upload','Импорт данных','Восстановить из файла или ссылки')
+    +row('m-demo','star','Добавить примеры','Несколько демонстрационных продуктов')
+    +row('m-clear','trash','Очистить всё','Удалить все продукты безвозвратно')
+    +row('m-about','info','О приложении','Версия '+APP_VERSION+' · работает офлайн');
+
+  $('#m-hh-edit').onclick=()=>{modal({title:'Название кладовой',body:'<input id="hh-in" maxlength="40" value="'+esc(state.household)+'">',actions:[{label:'Отмена'},{label:'Сохранить',class:'primary',onClick:()=>{const v=$('#hh-in').value.trim();if(v){state.household=v;save();render();}}}]});setTimeout(()=>$('#hh-in').focus(),50);};
+  $('#m-notif').onclick=toggleNotifications;
+  $('#m-sub').onclick=()=>switchTab('sub');
+  $('#m-export').onclick=exportFile;
+  $('#m-import').onclick=()=>$('#import-file').click();
+  $('#m-demo').onclick=seedDemo;
+  $('#m-clear').onclick=clearAll;
+  $('#m-about').onclick=()=>modal({title:'Хлад '+APP_VERSION,body:'Учёт продуктов и сроков годности. Данные хранятся только на вашем устройстве, приложение работает без сервера и офлайн.<br><br>Идеально под GitHub Pages — бесплатный хостинг 24/7.',actions:[{label:'Закрыть',class:'primary'}]});
+  const mi=$('#m-install');if(mi&&deferredPrompt)mi.classList.remove('hidden');
+  if(mi)mi.onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;mi.classList.add('hidden');};
+}
+
+/* ---------- subscription ---------- */
+const FEATURES=[
+ ['Без рекламы и трекеров',null,null],
+ ['Продукты в списке','до '+FREE_LIMIT,'безлимитно'],
+ ['Напоминания об истечении','пока открыто приложение','push даже закрыто*'],
+ ['Совместный доступ','ссылка-приглашение','онлайн-синхронизация*'],
+ ['Экспорт данных','JSON','история и отчёты*']
+];
+function renderSub(){
+  $('#sub-plan').innerHTML=`<span class="plan-badge ${state.pro?'pro':''}">${icon(state.pro?'check':'snow',15)} ${state.pro?'Хлад Pro':'Бесплатный тариф'}</span>
+    <h3 style="margin-top:10px">${state.pro?'Спасибо за поддержку!':'Хлад Pro'}</h3>
+    <p class="muted">${state.pro?'Все возможности открыты.':'Разблокирует безлимит продуктов, push-напоминания и будущую синхронизацию между устройствами.'}</p>`;
+  $('#sub-feats').innerHTML=FEATURES.map(([name,free,pro])=>{
+    const cur=state.pro?pro:free;
+    return `<div class="feat"><span class="fi">${icon('check',17)}</span>${esc(name)}<small>${esc(cur||'')}</small></div>`;
+  }).join('');
+  $('#sub-plans').innerHTML=`
+    <div class="plan-card"><b>Месяц</b><div class="price">149 ₽</div><div class="per">в месяц</div><button class="btn wide" data-plan="Месяц — 149 ₽">Выбрать</button></div>
+    <div class="plan-card hot"><b>Год</b><div class="price">990 ₽</div><div class="per">в год</div><span class="save">−45%</span><button class="btn primary wide" data-plan="Год — 990 ₽">Выбрать</button></div>`;
+  $$('#sub-plans [data-plan]').forEach(b=>b.onclick=()=>{modal({title:'Оплата пока недоступна',body:'Приём платежей заработает вместе с серверной частью — фронт уже готов. Подписчикам раннего доступа коды выдаются вручную через поле «Код доступа» ниже.',actions:[{label:'Понятно',class:'primary'}]});});
+  $('#promo-btn').onclick=()=>{
+    const code=$('#promo').value.trim().toUpperCase();
+    if(!code)return;
+    if(PROMO_CODES.includes(code)){state.pro=true;state.promoUsed=code;save();renderSub();renderMore();toast('Хлад Pro активирован');}
+    else toast('Код не найден или уже использован');
+  };
+}
+
+/* ---------- sheet ---------- */
+let editingId=null, sheetLoc='fridge';
+function openSheet(id){
+  editingId=id||null;
+  const p=id?state.products.find(x=>x.id===id):null;
+  $('#sheet-title').textContent=p?'Изменить продукт':'Новый продукт';
+  $('#f-name').value=p?p.name:'';
+  sheetLoc=p?p.location:'fridge';
+  $$('#f-loc button').forEach(b=>b.classList.toggle('active',b.dataset.loc===sheetLoc));
+  $('#f-cat').value=p?p.category:'Другое';
+  $('#f-qty').value=p?p.quantity:1;
+  $('#f-unit').value=p?p.unit:'шт';
+  const dflt=new Date();dflt.setDate(dflt.getDate()+3);
+  $('#f-date').value=p?p.expiresOn:dflt.toISOString().slice(0,10);
+  $('#f-notes').value=p?p.notes:'';
+  $('#f-delete').classList.toggle('hidden',!p);
+  $('#backdrop').classList.remove('hidden');requestAnimationFrame(()=>$('#backdrop').classList.add('show'));
+  $('#sheet').classList.add('show');
+  setTimeout(()=>$('#f-name').focus(),320);
+}
+function closeSheet(){$('#sheet').classList.remove('show');$('#backdrop').classList.remove('show');setTimeout(()=>$('#backdrop').classList.add('hidden'),250);}
+function saveProduct(){
+  const name=$('#f-name').value.trim();
+  const date=$('#f-date').value;
+  if(!name){toast('Введите название продукта');return;}
+  if(!date){toast('Укажите срок годности');return;}
+  const qty=Math.max(0,parseFloat($('#f-qty').value)||0);
+  if(editingId){
+    const p=state.products.find(x=>x.id===editingId);
+    if(p)Object.assign(p,{name,location:sheetLoc,category:$('#f-cat').value,quantity:qty,unit:$('#f-unit').value,expiresOn:date,notes:$('#f-notes').value.trim()});
+    toast('Сохранено');
+  }else{
+    if(!state.pro&&state.products.length>=FREE_LIMIT){
+      closeSheet();
+      modal({title:'Лимит бесплатной версии',body:'В бесплатной версии — до '+FREE_LIMIT+' продуктов. Хлад Pro открывает безлимит и будущие push-напоминания.',actions:[{label:'Позже'},{label:'Смотреть тарифы',class:'primary',onClick:()=>switchTab('sub')}]});
+      return;
+    }
+    state.products.push({id:uid(),name,location:sheetLoc,category:$('#f-cat').value,quantity:qty,unit:$('#f-unit').value,expiresOn:date,notes:$('#f-notes').value.trim(),createdAt:Date.now()});
+    toast('Добавлено: '+name);
+  }
+  save();closeSheet();render();
+}
+function deleteProduct(){
+  const p=state.products.find(x=>x.id===editingId);if(!p)return;
+  modal({title:'Удалить «'+esc(p.name)+'»?',body:'Продукт будет удалён безвозвратно.',actions:[{label:'Отмена'},{label:'Удалить',class:'danger',onClick:()=>{state.products=state.products.filter(x=>x.id!==editingId);save();closeSheet();render();toast('Удалено');}}]});
+}
+
+/* ---------- notifications ---------- */
+async function toggleNotifications(){
+  if(!('Notification' in window)){toast('Браузер не поддерживает уведомления');return;}
+  if(!state.settings.notifications){
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){toast('Разрешите уведомления в настройках браузера');return;}
+    state.settings.notifications=true;save();renderMore();toast('Напоминания включены');
+  }else{
+    modal({title:'Напоминания',body:'Уведомлять о продуктах, у которых срок годности истекает в ближайшие <b>'+state.settings.notifyDays+' дн.</b><br><br>Системные push приходят, пока открыто приложение; фоновые push — в платной версии.',actions:[{label:'Выключить',class:'danger',onClick:()=>{state.settings.notifications=false;save();renderMore();toast('Напоминания выключены');}},{label:'OK',class:'primary'}]});
+  }
+}
+function checkNotifications(){
+  if(!state.settings.notifications||!('Notification' in window)||Notification.permission!=='granted')return;
+  let changed=false;const now=Date.now();
+  state.products.forEach(p=>{
+    const d=daysUntil(p.expiresOn);
+    if(d>=0&&d<=state.settings.notifyDays){const k=p.id+':'+p.expiresOn;if(!state.notified[k]){state.notified[k]=now;changed=true;try{new Notification('Хлад',{body:'«'+p.name+'» — '+daysLabel(d)});}catch(e){}}}
+    if(d<0){const k=p.id+':exp:'+p.expiresOn;if(!state.notified[k]){state.notified[k]=now;changed=true;try{new Notification('Хлад',{body:'«'+p.name+'» просрочен'});}catch(e){}}}
+  });
+  if(changed){Object.keys(state.notified).forEach(k=>{if(now-state.notified[k]>7*864e5)delete state.notified[k];});save();}
+}
+setInterval(checkNotifications,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkNotifications();});
+
+/* ---------- share / import-export ---------- */
+function snapshot(){return {app:'khlad',v:1,sentAt:new Date().toISOString(),household:state.household,products:state.products};}
+function makeInviteLink(){
+  const json=JSON.stringify(snapshot());
+  const b64=btoa(unescape(encodeURIComponent(json)));
+  const url=location.href.split('#')[0]+'#join='+b64;
+  if(url.length>7000){toast('Слишком много данных для ссылки — используйте экспорт файла');return null;}
+  return url;
+}
+function copyText(t){
+  if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t).then(()=>true).catch(()=>fallbackCopy(t));
+  return Promise.resolve(fallbackCopy(t));
+}
+function fallbackCopy(t){const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();return ok;}
+async function invite(){const url=makeInviteLink();if(!url)return;const ok=await copyText(url);toast(ok?'Ссылка скопирована — отправьте её домашним':'Скопируйте ссылку: '+url.slice(0,60)+'…');}
+function exportFile(){
+  const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='khlad-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast('Файл сохранён');
+}
+function importData(data,srcLabel){
+  if(!data||!Array.isArray(data.products)){toast('Не удалось прочитать данные');return;}
+  const items=data.products.filter(p=>p&&p.name&&p.expiresOn).map(p=>({id:uid(),name:String(p.name).slice(0,60),location:LOCATIONS.some(l=>l.id===p.location)?p.location:'fridge',category:CATEGORIES.includes(p.category)?p.category:'Другое',quantity:parseFloat(p.quantity)||0,unit:UNITS.includes(p.unit)?p.unit:'шт',expiresOn:String(p.expiresOn).slice(0,10),notes:String(p.notes||'').slice(0,120),createdAt:p.createdAt||Date.now()}));
+  if(!items.length){toast('В '+srcLabel+' нет продуктов');return;}
+  modal({title:'Загрузить данные?',body:srcLabel+': <b>'+items.length+'</b> продуктов'+(data.household?', кладовая «'+esc(data.household)+'»':'')+'.<br>Текущий список ('+state.products.length+') будет заменён.',actions:[{label:'Отмена'},{label:'Загрузить',class:'primary',onClick:()=>{state.products=items;if(data.household)state.household=data.household;save();render();toast('Данные загружены');}}]});
+}
+$('#import-file').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{importData(JSON.parse(r.result),'В файле');}catch(err){toast('Файл повреждён');}};
+  r.readAsText(f);e.target.value='';
+});
+function handleJoinHash(){
+  if(!location.hash.startsWith('#join='))return;
+  let data=null;
+  try{data=JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(6)))));}catch(e){}
+  history.replaceState(null,'',location.pathname+location.search);
+  if(!data){toast('Ссылка-приглашение не читается');return;}
+  const n=(data.products||[]).length;
+  modal({title:'Приглашение в «'+esc(data.household||'Хлад')+'»',body:'Вам передали снимок запасов: <b>'+n+'</b> продуктов. Загрузить его вместо текущего списка?',actions:[{label:'Отклонить'},{label:'Загрузить',class:'primary',onClick:()=>importData(data,'В приглашении')}]});
+}
+
+/* ---------- demo / clear ---------- */
+function seedDemo(){
+  const mk=(name,loc,cat,qty,unit,days,notes)=>({id:uid(),name,location:loc,category:cat,quantity:qty,unit,notes:notes||'',createdAt:Date.now(),expiresOn:new Date(Date.now()+days*864e5).toISOString().slice(0,10)});
+  modal({title:'Добавить примеры?',body:'Будет добавлено 6 демонстрационных продуктов с разными сроками годности.',actions:[{label:'Отмена'},{label:'Добавить',class:'primary',onClick:()=>{state.products.push(
+    mk('Молоко 3,2%','fridge','Молочное',1,'л',2),
+    mk('Куриное филе','fridge','Мясо и рыба',600,'г',0,'разделить на порции'),
+    mk('Замороженная вишня','freezer','Заморозка',400,'г',90),
+    mk('Гречневая крупа','pantry','Бакалея',2,'уп.',180),
+    mk('Сметана','fridge','Молочное',1,'шт',-1),
+    mk('Томатная паста','pantry','Соусы',1,'шт',5));
+    save();render();toast('Примеры добавлены');}}]});
+}
+function clearAll(){
+  modal({title:'Очистить всё?',body:'Все '+state.products.length+' продуктов будут удалены безвозвратно.',actions:[{label:'Отмена'},{label:'Удалить всё',class:'danger',onClick:()=>{state.products=[];save();render();toast('Список очищен');}}]});
+}
+
+/* ---------- tabs & wiring ---------- */
+function switchTab(name){
+  ui.tab=name;
+  $$('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+name));
+  $$('.tab').forEach(t=>{const on=t.dataset.tab===name;t.classList.toggle('active',on);t.style.color=on?'var(--accent)':'';});
+  $('#fab').style.display=(name==='stock'||name==='dates')?'grid':'none';
+  if(name==='sub')renderSub();
+  if(name==='more')renderMore();
+}
+$$('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
+$('#fab').innerHTML=icon('plus',26);
+$('#fab').onclick=()=>openSheet(null);
+$('#bell').onclick=toggleNotifications;
+$('#sheet-close').innerHTML=icon('x');
+$('#sheet-close').onclick=closeSheet;
+$('#backdrop').onclick=closeSheet;
+$('#f-save').onclick=saveProduct;
+$('#f-delete').onclick=deleteProduct;
+$$('#f-loc button').forEach(b=>b.onclick=()=>{sheetLoc=b.dataset.loc;$$('#f-loc button').forEach(x=>x.classList.toggle('active',x===b));});
+$('#search-ic').innerHTML=icon('search',18);
+$('#search').addEventListener('input',e=>{ui.q=e.target.value.trim().toLowerCase();renderStock();});
+$('#s-invite').onclick=invite;
+$('#s-export').onclick=exportFile;
+$('#s-import').onclick=()=>$('#import-file').click();
+$$('.tab .ti').forEach((el,i)=>{el.innerHTML=icon(['package','calendar','users','dots'][i],22);el.style.marginBottom='2px';});
+
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const mi=$('#m-install');if(mi)mi.classList.remove('hidden');});
+
+function render(){renderChips();renderStock();renderDates();renderBadges();renderMore();$('#hh-sub').textContent=state.household;}
+
+$('#f-cat').innerHTML=CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+$('#f-unit').innerHTML=UNITS.map(u=>`<option>${u}</option>`).join('');
+
+handleJoinHash();
+render();
+checkNotifications();
+
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+})();
+</script>
+</body>
+</html>
